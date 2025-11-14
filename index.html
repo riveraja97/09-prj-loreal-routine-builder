@@ -77,6 +77,22 @@
       <!------- Chat Area ------->
       <section class="chatbox">
         <h2>Let's Build Your Routine</h2>
+        <div class="system-prompt-editor">
+          <label for="systemPrompt" class="visually-hidden"
+            >System Prompt</label
+          >
+          <textarea
+            id="systemPrompt"
+            rows="3"
+            placeholder="System prompt for the assistant (editable for testing)"
+          ></textarea>
+          <div class="prompt-actions">
+            <button id="saveSystemPrompt" class="btn">Save Prompt</button>
+            <button id="resetSystemPrompt" class="btn btn-secondary">
+              Reset
+            </button>
+          </div>
+        </div>
         <div id="chatWindow" class="chat-window"></div>
 
         <form id="chatForm" class="chat-form">

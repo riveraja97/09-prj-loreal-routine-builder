@@ -76,6 +76,36 @@ html[dir="rtl"] .search-section {
   margin-bottom: 20px;
 }
 
+/* System prompt editor */
+.system-prompt-editor {
+  margin-bottom: 12px;
+}
+.system-prompt-editor textarea {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  resize: vertical;
+}
+.prompt-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+.btn {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+  background: #000;
+  color: white;
+  cursor: pointer;
+}
+.btn-secondary {
+  background: #f3f4f6;
+  color: #111;
+}
+
 .chat-window {
   padding: 20px;
   font-size: 18px;
