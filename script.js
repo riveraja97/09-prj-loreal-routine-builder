@@ -5,6 +5,34 @@ const chatForm = document.getElementById("chatForm");
 const chatWindow = document.getElementById("chatWindow");
 const rtlToggle = document.getElementById("rtlToggle");
 
+// Cloudflare Workers proxy configuration -- set to your worker domain
+// This worker should accept POST requests and forward them to OpenAI (server-side key)
+const WORKER_PROXY_BASE = "https://black-rice-7b4b.riveraja.workers.dev"; // set to your worker
+// Path on the worker that handles chat/completions. Adjust if your worker expects a different path.
+const WORKER_PROXY_CHAT_PATH = "/chat";
+
+/**
+ * Helper to call the proxy or fallback to OpenAI directly.
+ * body should be the same object you'd send to OpenAI (model, messages, etc.).
+ */
+async function proxyFetchChat(body) {
+  const url = WORKER_PROXY_BASE
+    ? `${WORKER_PROXY_BASE.replace(/\/$/, "")}${WORKER_PROXY_CHAT_PATH}`
+    : "https://api.openai.com/v1/chat/completions";
+  const headers = { "Content-Type": "application/json" };
+  // If no worker is configured and an OPENAI_API_KEY is present, send the Authorization header
+  if (!WORKER_PROXY_BASE && typeof OPENAI_API_KEY !== "undefined") {
+    headers.Authorization = `Bearer ${OPENAI_API_KEY}`;
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  return res;
+}
+
 // Simple translation map for UI strings (English + Arabic)
 const TRANSLATIONS = {
   en: {
@@ -527,23 +555,18 @@ chatForm.addEventListener("submit", async (e) => {
 
   /* Helper: call OpenAI Chat Completions and return assistant text */
   async function callOpenAI(messages) {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages,
-        max_tokens: 700,
-        temperature: 0.7,
-      }),
-    });
+    // Use the proxy helper so requests go through Cloudflare Worker if configured
+    const payload = {
+      model: "gpt-4o",
+      messages,
+      max_tokens: 700,
+      temperature: 0.7,
+    };
+    const res = await proxyFetchChat(payload);
 
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`OpenAI API error: ${res.status} ${errText}`);
+      throw new Error(`Chat API error: ${res.status} ${errText}`);
     }
 
     const data = await res.json();
@@ -648,28 +671,20 @@ if (generateBtn) {
         )}\n\nCreate a short routine (bulleted or numbered) describing when and how to use these products together.`,
       };
 
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          messages: [systemMsg, userMsg],
-          max_tokens: 500,
-          temperature: 0.7,
-        }),
+      // send through proxy (Cloudflare Worker) or fallback
+      const res = await proxyFetchChat({
+        model: "gpt-4o",
+        messages: [systemMsg, userMsg],
+        max_tokens: 500,
+        temperature: 0.7,
       });
 
       if (!res.ok) {
         const errText = await res.text();
-        throw new Error(`OpenAI API error: ${res.status} ${errText}`);
+        throw new Error(`Chat API error: ${res.status} ${errText}`);
       }
 
       const data = await res.json();
-
-      // Check for the expected content location
       const assistantMsg =
         data &&
         data.choices &&
@@ -680,7 +695,7 @@ if (generateBtn) {
           : "(No response returned)";
 
       // render assistant response in chat window
-      chatWindow.innerHTML = `<div class=\"chat-response\">${assistantMsg
+      chatWindow.innerHTML = `<div class="chat-response">${assistantMsg
         .replace(/\n/g, "<br>")
         .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")}</div>`;
     } catch (err) {
