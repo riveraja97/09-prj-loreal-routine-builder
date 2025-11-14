@@ -858,11 +858,17 @@ if (generateBtn) {
       const systemMsg = { role: "system", content: currentSystemPrompt };
       const userMsg = {
         role: "user",
-        content: `Here are the selected products:\n\n${JSON.stringify(
-          selectedProducts,
-          null,
-          2
-        )}\n\nCreate a short routine (bulleted or numbered) describing when and how to use these products together.`,
+        content: `YOU
+(Show Products Selected - NAMES ONLY)
+-Then say create a routine for morning and evening
+
+
+You
+Here are the selected products
+
+${JSON.stringify(selectedProducts, null, 2)}
+
+Create a short routine (bulleted or numbered) describing when and how to use these products together.`,
       };
 
       let assistantText = "";
