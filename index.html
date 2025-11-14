@@ -20,7 +20,24 @@
       <!------- Header / Branding ------->
       <header class="site-header">
         <img src="img/loreal-logo.png" alt="L'Oréal Logo" class="logo" />
-        <h1 class="site-title">Smart Routine &amp; Product Advisor</h1>
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+          "
+        >
+          <h1 class="site-title">Smart Routine &amp; Product Advisor</h1>
+          <button
+            id="rtlToggle"
+            class="rtl-toggle"
+            aria-pressed="false"
+            title="Toggle RTL"
+          >
+            RTL
+          </button>
+        </div>
       </header>
 
       <!-- Category Filter -->
@@ -37,6 +54,12 @@
           <option value="suncare">Suncare</option>
           <option value="fragrance">Fragrance</option>
         </select>
+        <input
+          id="productSearch"
+          type="search"
+          placeholder="Search products by name or keyword…"
+          aria-label="Search products"
+        />
       </div>
 
       <!-- Products Grid -->

@@ -42,6 +42,11 @@ body {
   display: flex;
 }
 
+/* RTL adjustments */
+html[dir="rtl"] .search-section {
+  flex-direction: row-reverse;
+}
+
 .search-section select {
   width: 100%;
   padding: 16px;
@@ -95,6 +100,11 @@ body {
   display: flex;
   gap: 12px;
   margin-top: 16px;
+}
+
+/* RTL: reverse chat form order so button appears on left */
+html[dir="rtl"] .chat-form {
+  flex-direction: row-reverse;
 }
 
 .chat-form input {
@@ -186,6 +196,13 @@ body {
   display: flex;
   gap: 15px;
   min-height: 160px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* RTL: place the image on the right and flip card layout */
+html[dir="rtl"] .product-card {
+  flex-direction: row-reverse;
 }
 
 .product-card img {
@@ -193,6 +210,26 @@ body {
   height: 110px;
   object-fit: contain;
   flex-shrink: 0;
+  transition: transform 260ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* zoom the image slightly when card is marked hover-expanded */
+.product-card.hover-expanded img {
+  transform: scale(1.12);
+}
+
+/* show details on hover/focus - card expands */
+.product-card.hover-expanded {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.product-card.hover-expanded .product-desc {
+  max-height: 400px;
+  opacity: 1;
+  margin-top: 12px;
+  padding: 10px;
 }
 
 .product-card .product-info {
@@ -203,6 +240,11 @@ body {
   min-height: 110px;
 }
 
+/* RTL: right-align product text */
+html[dir="rtl"] .product-card .product-info {
+  text-align: right;
+}
+
 .product-card h3 {
   font-size: 16px;
   margin-bottom: 8px;
@@ -211,6 +253,104 @@ body {
 .product-card p {
   font-size: 14px;
   color: #666;
+}
+
+/* Description area hidden by default; shown when card is expanded */
+.product-desc {
+  width: 100%;
+  box-sizing: border-box;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 220ms ease, opacity 160ms ease, margin-top 160ms ease,
+    padding 160ms ease;
+  opacity: 0;
+  margin-top: 0;
+  font-size: 13px;
+  color: #333;
+  background: #ffffff;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+/* (previous .expanded rules removed — hover-driven .hover-expanded now controls expansion) */
+
+/* helper state while collapsing to ensure a smooth slide animation */
+.product-card.will-collapse .product-desc {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* Selected card visual state */
+.product-card.selected {
+  border-color: #0b76ff;
+  background: #f0f8ff;
+  box-shadow: 0 4px 12px rgba(11, 118, 255, 0.12);
+}
+
+/* small check badge */
+.product-card.selected::after {
+  content: "\2713";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #0b76ff;
+  color: white;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+/* RTL: move check badge to the left */
+html[dir="rtl"] .product-card.selected::after {
+  right: auto;
+  left: 8px;
+}
+
+/* Selected products chips */
+.selected-chip {
+  background: #f3f4f6;
+  border-radius: 18px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #111827;
+  position: relative;
+  padding-right: 40px;
+}
+.selected-chip .chip-brand {
+  display: block;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* remove (×) button inside chip */
+.selected-chip .chip-remove {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.selected-chip .chip-remove:hover {
+  background: #e5e7eb;
+  color: #111827;
 }
 
 /* selected products */
@@ -230,6 +370,16 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+/* RTL: move chip remove button to the left and adjust padding */
+html[dir="rtl"] .selected-chip {
+  padding-right: 12px;
+  padding-left: 40px;
+}
+html[dir="rtl"] .selected-chip .chip-remove {
+  right: auto;
+  left: 6px;
 }
 
 .generate-btn {
@@ -252,4 +402,27 @@ body {
 
 .generate-btn i {
   margin-right: 8px;
+}
+
+/* RTL: icon spacing flip */
+html[dir="rtl"] .generate-btn i {
+  margin-right: 0;
+  margin-left: 8px;
+}
+
+/* RTL: ensure search/select inputs align correctly */
+html[dir="rtl"] .search-section select,
+html[dir="rtl"] #productSearch {
+  direction: rtl;
+  text-align: right;
+}
+
+/* RTL: when a card is expanded into column layout, align items to the end */
+html[dir="rtl"] .product-card.hover-expanded {
+  align-items: flex-end;
+}
+
+/* RTL: product description and other text should be right-aligned */
+html[dir="rtl"] .product-desc {
+  text-align: right;
 }
