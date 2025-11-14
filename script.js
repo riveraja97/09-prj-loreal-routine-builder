@@ -856,19 +856,15 @@ if (generateBtn) {
         }));
 
       const systemMsg = { role: "system", content: currentSystemPrompt };
+      const namesOnly = selectedProducts.map((p) => p.name);
       const userMsg = {
         role: "user",
-        content: `YOU
-(Show Products Selected - NAMES ONLY)
--Then say create a routine for morning and evening
-
-
-You
+        content: `You
 Here are the selected products
 
-${JSON.stringify(selectedProducts, null, 2)}
+${JSON.stringify(namesOnly, null, 2)}
 
-Create a short routine (bulleted or numbered) describing when and how to use these products together.`,
+Create a short routine with two clearly labeled sections: "Morning routine:" and "Evening routine:". Under each section, provide a concise bulleted or numbered list of steps that state when and how to use the listed products. Use the product names in the steps where appropriate. Keep each step short and actionable.`,
       };
 
       let assistantText = "";
