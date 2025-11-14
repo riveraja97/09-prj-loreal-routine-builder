@@ -528,7 +528,7 @@ async function callOpenAI(messages, options = {}) {
   return assistantMsg;
 }
 
-/* Local fallback routine generator (basic rule-based) */
+/* Local fallback routine generator (concise numbered steps using product names) */
 function generateLocalRoutine(selectedProducts) {
   if (!selectedProducts || selectedProducts.length === 0)
     return "No products selected.";
@@ -540,122 +540,88 @@ function generateLocalRoutine(selectedProducts) {
     byCat[cat].push(p);
   });
 
-  const lines = [];
-  // Skincare: morning and evening
-  if (byCat.cleanser || byCat.skincare || byCat.moisturizer || byCat.suncare) {
-    lines.push("Morning routine:");
-    // Cleanser
-    const cleansers = (byCat.cleanser || []).concat(
-      (byCat.skincare || []).filter((p) => /(cleanser)/i.test(p.name))
-    );
-    if (cleansers.length) {
-      cleansers.forEach((c, i) =>
-        lines.push(`${lines.length}. Cleanse with ${c.brand} ${c.name}.`)
-      );
-    }
-    // Treatment / serums
-    const treatments = (byCat.skincare || []).filter((p) =>
-      /(serum|retinol|vitamin|vitamin c|acid|treatment)/i.test(
-        p.name + " " + p.description
-      )
-    );
-    if (treatments.length) {
-      treatments.forEach((t) =>
-        lines.push(`${lines.length}. Apply ${t.brand} ${t.name} (treatment).`)
-      );
-    }
-    // Moisturizer
-    const moisturizers = byCat.moisturizer || [];
-    if (moisturizers.length) {
-      moisturizers.forEach((m) =>
-        lines.push(`${lines.length}. Use ${m.brand} ${m.name} to hydrate.`)
-      );
-    }
-    // Sunscreen
-    const sunscreens =
-      byCat.suncare ||
-      (byCat.skincare || []).filter((p) =>
-        /(spf|sunscreen)/i.test(p.name + " " + p.description)
-      );
-    if (sunscreens && sunscreens.length) {
-      sunscreens.forEach((s) =>
-        lines.push(
-          `${lines.length}. Finish with sunscreen: ${s.brand} ${s.name}.`
-        )
-      );
-    }
+  // collect sections as {title, steps[]}
+  const sections = [];
 
-    lines.push("");
-    // Evening routine
-    lines.push("Evening routine:");
-    if (cleansers.length) {
-      cleansers.forEach((c) =>
-        lines.push(`${lines.length}. Cleanse with ${c.brand} ${c.name}.`)
-      );
-    }
-    if (treatments.length) {
-      treatments.forEach((t) =>
-        lines.push(
-          `${lines.length}. Apply ${t.brand} ${t.name} (use as directed, some treatments are nightly).`
-        )
-      );
-    }
-    if (moisturizers.length) {
-      moisturizers.forEach((m) =>
-        lines.push(
-          `${lines.length}. Apply ${m.brand} ${m.name} to lock in moisture overnight.`
-        )
-      );
-    }
-  }
+  // Skincare ordering
+  const cleansers = (byCat.cleanser || []).concat(
+    (byCat.skincare || []).filter((p) => /cleanser/i.test(p.name))
+  );
+  const treatments = (byCat.skincare || []).filter((p) =>
+    /(serum|retinol|vitamin|acid|treatment)/i.test(p.name + " " + p.description)
+  );
+  const moisturizers = byCat.moisturizer || [];
+  const sunscreens =
+    byCat.suncare ||
+    (byCat.skincare || []).filter((p) =>
+      /(spf|sunscreen)/i.test(p.name + " " + p.description)
+    );
+
+  const morning = [];
+  const evening = [];
+
+  if (cleansers.length)
+    cleansers.forEach((c) => morning.push(`Cleanse with ${c.name}`));
+  if (treatments.length)
+    treatments.forEach((t) => morning.push(`Apply ${t.name}`));
+  if (moisturizers.length)
+    moisturizers.forEach((m) => morning.push(`Use ${m.name}`));
+  if (sunscreens.length)
+    sunscreens.forEach((s) => morning.push(`Apply ${s.name} (sunscreen)`));
+
+  if (cleansers.length)
+    cleansers.forEach((c) => evening.push(`Cleanse with ${c.name}`));
+  if (treatments.length)
+    treatments.forEach((t) => evening.push(`Apply ${t.name} (treatment)`));
+  if (moisturizers.length)
+    moisturizers.forEach((m) => evening.push(`Use ${m.name}`));
+
+  if (morning.length)
+    sections.push({ title: "Morning routine:", steps: morning });
+  if (evening.length)
+    sections.push({ title: "Evening routine:", steps: evening });
 
   // Haircare
   if (byCat.haircare || byCat["hair styling"] || byCat["hair color"]) {
-    lines.push("");
-    lines.push("Haircare:");
+    const hair = [];
     const shampoos = (byCat.haircare || []).filter((p) =>
-      /(shampoo)/i.test(p.name + " " + p.description)
+      /shampoo/i.test(p.name + " " + p.description)
     );
     const conditioners = (byCat.haircare || []).filter((p) =>
-      /(conditioner)/i.test(p.name + " " + p.description)
+      /conditioner/i.test(p.name + " " + p.description)
     );
-    shampoos.forEach((s) =>
-      lines.push(
-        `${lines.length}. Wet hair, shampoo with ${s.brand} ${s.name}, then rinse.`
-      )
-    );
-    conditioners.forEach((c) =>
-      lines.push(
-        `${lines.length}. Follow with ${c.brand} ${c.name} on lengths and ends.`
-      )
-    );
+    shampoos.forEach((s) => hair.push(`Shampoo with ${s.name}`));
+    conditioners.forEach((c) => hair.push(`Condition with ${c.name}`));
+    if (hair.length) sections.push({ title: "Haircare:", steps: hair });
   }
 
   // Makeup
   if (byCat.makeup) {
-    lines.push("");
-    lines.push("Makeup application tips:");
-    byCat.makeup.forEach((m) =>
-      lines.push(
-        `${lines.length}. Use ${m.brand} ${m.name} as appropriate (follow product instructions).`
-      )
-    );
+    const makeup = [];
+    byCat.makeup.forEach((m) => makeup.push(`Use ${m.name} as directed`));
+    if (makeup.length) sections.push({ title: "Makeup:", steps: makeup });
   }
 
   // Fragrance
   if (byCat.fragrance) {
-    lines.push("");
-    lines.push("Fragrance:");
+    const frag = [];
     byCat.fragrance.forEach((f) =>
-      lines.push(
-        `${lines.length}. Apply ${f.brand} ${f.name} to pulse points as desired.`
-      )
+      frag.push(`Spray ${f.name} on pulse points`)
     );
+    if (frag.length) sections.push({ title: "Fragrance:", steps: frag });
   }
 
-  if (lines.length === 0)
+  if (sections.length === 0)
     return "Couldn't compose a routine from the selected products.";
-  return lines.join("\n");
+
+  // Build output: each section title followed by numbered list starting at 1
+  const out = [];
+  sections.forEach((sec) => {
+    out.push(sec.title);
+    sec.steps.forEach((s, i) => out.push(`${i + 1}. ${s}`));
+    out.push("");
+  });
+  return out.join("\n");
 }
 
 /* Attach hover/focus handlers to each rendered card to keep aria-hidden in sync */
@@ -755,19 +721,62 @@ chatForm.addEventListener("submit", async (e) => {
   const text = input.value.trim();
   // Enforce topic whitelist: only allow beauty-related queries
   if (text && !isOnTopic(text)) {
-    // Ensure a system prompt exists so chat window renders consistently
-    window.chatMessages = window.chatMessages || [
-      { role: "system", content: currentSystemPrompt },
-    ];
-    window.chatMessages.push({ role: "user", content: text });
-    window.chatMessages.push({
-      role: "assistant",
-      content:
-        "I can only help with skincare, haircare, makeup, fragrance, and routines based on selected products. Please ask a related question.",
-    });
-    renderChatWindow();
-    input.value = "";
-    return;
+    // Allow follow-up questions that reference selected product names or routine-related keywords
+    let isFollowup = false;
+    try {
+      const products = await loadProducts();
+      const selectedProducts = products.filter((p) => selectedIds.has(p.id));
+      const selectedNames = selectedProducts.map((p) =>
+        (p.name || "").toLowerCase()
+      );
+      const lower = text.toLowerCase();
+      for (const name of selectedNames) {
+        if (!name) continue;
+        if (lower.includes(name)) {
+          isFollowup = true;
+          break;
+        }
+      }
+      const followupKeywords = [
+        "step",
+        "steps",
+        "routine",
+        "morning",
+        "evening",
+        "use",
+        "apply",
+        "when",
+        "how",
+        "recommend",
+        "best",
+      ];
+      if (!isFollowup) {
+        for (const kw of followupKeywords) {
+          if (lower.includes(kw)) {
+            isFollowup = true;
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      // ignore load errors and fall back to strict mode
+    }
+
+    if (!isFollowup) {
+      // Ensure a system prompt exists so chat window renders consistently
+      window.chatMessages = window.chatMessages || [
+        { role: "system", content: currentSystemPrompt },
+      ];
+      window.chatMessages.push({ role: "user", content: text });
+      window.chatMessages.push({
+        role: "assistant",
+        content:
+          "I can only help with skincare, haircare, makeup, fragrance, and routines based on selected products. Please ask a related question.",
+      });
+      renderChatWindow();
+      input.value = "";
+      return;
+    }
   }
   // add the user's message to conversation and call the assistant
   try {
@@ -859,12 +868,11 @@ if (generateBtn) {
       const namesOnly = selectedProducts.map((p) => p.name);
       const userMsg = {
         role: "user",
-        content: `You
-Here are the selected products
+        content: `Here are the selected products
 
 ${JSON.stringify(namesOnly, null, 2)}
 
-Create a short routine with two clearly labeled sections: "Morning routine:" and "Evening routine:". Under each section, provide a concise bulleted or numbered list of steps that state when and how to use the listed products. Use the product names in the steps where appropriate. Keep each step short and actionable.`,
+Create a short routine with two sections: "Morning routine:" and "Evening routine:". Under each section, provide a concise bulleted or numbered list of steps that state when and how to use the listed products. Use the product names in the steps where appropriate. Keep each step short and actionable.`,
       };
 
       let assistantText = "";
