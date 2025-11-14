@@ -116,6 +116,68 @@ html[dir="rtl"] .search-section {
   margin-bottom: 20px;
 }
 
+/* Chat bubble styles */
+.chat-line {
+  display: flex;
+  margin-bottom: 12px;
+}
+.chat-line .chat-bubble {
+  max-width: 78%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+.chat-line .chat-meta {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  opacity: 0.8;
+}
+.chat-line .chat-bubble-content p {
+  margin: 6px 0;
+}
+.chat-line .chat-bubble-content h4.chat-section {
+  margin: 8px 0 6px 0;
+  font-size: 15px;
+}
+.chat-list-ol,
+.chat-list-ul {
+  margin: 6px 0 6px 18px;
+}
+
+/* assistant (left) */
+.chat-line.chat-assistant {
+  justify-content: flex-start;
+}
+.chat-bubble-assistant {
+  background: #ffffff;
+  color: #111;
+  border: 1px solid #e5e7eb;
+}
+
+/* user (right) */
+.chat-line.chat-user {
+  justify-content: flex-end;
+}
+.chat-bubble-user {
+  background: #0b76ff;
+  color: #fff;
+  text-align: left;
+}
+
+/* make sure headings and lists inside user bubble inherit readable color */
+.chat-bubble-user .chat-meta,
+.chat-bubble-user .chat-bubble-content {
+  color: #fff;
+}
+
+/* responsive tweaks */
+@media (max-width: 640px) {
+  .chat-line .chat-bubble {
+    max-width: 92%;
+  }
+}
+
 /* placeholder message */
 .placeholder-message {
   width: 100%;

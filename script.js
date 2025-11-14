@@ -3,7 +3,7 @@ const categoryFilter = document.getElementById("categoryFilter");
 const productsContainer = document.getElementById("productsContainer");
 const chatForm = document.getElementById("chatForm");
 const chatWindow = document.getElementById("chatWindow");
-const rtlToggle = document.getElementById("rtlToggle");
+const langSelect = document.getElementById("langSelect");
 
 // Cloudflare Workers proxy configuration -- set to your worker domain
 // This worker should accept POST requests and forward them to OpenAI (server-side key)
@@ -88,14 +88,6 @@ const ALLOWED_TOPIC_KEYWORDS = [
   "concealer",
   "mascara",
   "eyeshadow",
-  "lipstick",
-  "fragrance",
-  "perfume",
-  "scent",
-  "routine",
-  "product",
-  "ingredient",
-  "ingredients",
 ];
 
 function isOnTopic(text) {
@@ -128,8 +120,8 @@ function applyTranslations(lang) {
   if (genBtn) genBtn.textContent = t.generateBtn;
   const searchEl = document.getElementById("productSearch");
   if (searchEl) searchEl.placeholder = t.searchPlaceholder;
-  const rtlBtn = document.getElementById("rtlToggle");
-  if (rtlBtn) rtlBtn.textContent = t.rtlButton;
+  // language selector exists in the header; options show readable labels
+  // no dynamic text needed here for the select element itself
   const selectedLabel = document.getElementById("selectedProductsLabel");
   if (selectedLabel) selectedLabel.textContent = t.selectedProducts;
   const chatHeading = document.getElementById("chatHeading");
@@ -182,12 +174,12 @@ const selectedIds = loadSelectedIds();
 function applyDir(dir) {
   if (dir === "rtl") {
     document.documentElement.setAttribute("dir", "rtl");
-    if (rtlToggle) rtlToggle.setAttribute("aria-pressed", "true");
+    if (langSelect) langSelect.value = "ar";
     // apply Arabic translations when switching to RTL
     applyTranslations("ar");
   } else {
     document.documentElement.removeAttribute("dir");
-    if (rtlToggle) rtlToggle.setAttribute("aria-pressed", "false");
+    if (langSelect) langSelect.value = "en";
     // apply English translations for LTR
     applyTranslations("en");
   }
@@ -236,15 +228,14 @@ if (!document.documentElement.getAttribute("dir")) {
   applyTranslations("en");
 }
 
-if (rtlToggle) {
-  rtlToggle.addEventListener("click", () => {
-    const isRtl = document.documentElement.getAttribute("dir") === "rtl";
-    const next = isRtl ? "ltr" : "rtl";
-    applyDir(next === "rtl" ? "rtl" : "ltr");
+if (langSelect) {
+  // when user selects a language, switch direction and translations
+  langSelect.addEventListener("change", () => {
+    const v = langSelect.value === "ar" ? "rtl" : "ltr";
+    applyDir(v === "rtl" ? "rtl" : "ltr");
     try {
-      localStorage.setItem("uiDir", next === "rtl" ? "rtl" : "ltr");
-      // persist language mapping as well
-      localStorage.setItem("uiLang", next === "rtl" ? "ar" : "en");
+      localStorage.setItem("uiDir", v === "rtl" ? "rtl" : "ltr");
+      localStorage.setItem("uiLang", langSelect.value === "ar" ? "ar" : "en");
     } catch (err) {
       console.warn("Could not persist UI direction:", err);
     }
@@ -389,21 +380,123 @@ function escapeHtml(str) {
     .replace(/\'/g, "&#39;");
 }
 
+/* Format message content into HTML with simple sections, lists, and paragraphs */
+function formatMessageContent(raw) {
+  if (!raw && raw !== 0) return "";
+  const text = String(raw);
+  const lines = text.split(/\r?\n/);
+  let out = "";
+  let inList = false;
+  let listType = null; // 'ol' or 'ul'
+
+  const flushList = () => {
+    if (inList) {
+      out += `</${listType}>`;
+      inList = false;
+      listType = null;
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i].trim();
+    if (!l) {
+      flushList();
+      out += "<p></p>";
+      continue;
+    }
+
+    // Heading like "Morning routine:" or "Haircare:"
+    const headingMatch = l.match(/^([A-Za-z0-9 \-()']+):$/);
+    if (headingMatch) {
+      flushList();
+      out += `<h4 class=\"chat-section\">${escapeHtml(headingMatch[1])}</h4>`;
+      continue;
+    }
+
+    // Ordered list item (starts with number.)
+    const olMatch = l.match(/^\s*(\d+)[\.)]\s*(.*)$/);
+    if (olMatch) {
+      if (!inList) {
+        inList = true;
+        listType = "ol";
+        out += '<ol class="chat-list-ol">';
+      } else if (listType !== "ol") {
+        flushList();
+        inList = true;
+        listType = "ol";
+        out += '<ol class="chat-list-ol">';
+      }
+      out += `<li>${escapeHtml(olMatch[2])}</li>`;
+      continue;
+    }
+
+    // Unordered list markers (- or • or *)
+    const ulMatch = l.match(/^\s*[-•*]\s*(.*)$/);
+    if (ulMatch) {
+      if (!inList) {
+        inList = true;
+        listType = "ul";
+        out += '<ul class="chat-list-ul">';
+      } else if (listType !== "ul") {
+        flushList();
+        inList = true;
+        listType = "ul";
+        out += '<ul class="chat-list-ul">';
+      }
+      out += `<li>${escapeHtml(ulMatch[1])}</li>`;
+      continue;
+    }
+
+    // Lines that look like "1. Do this" without captured number (fallback)
+    const numStart = l.match(/^[0-9]+\./);
+    if (numStart) {
+      if (!inList) {
+        inList = true;
+        listType = "ol";
+        out += '<ol class="chat-list-ol">';
+      }
+      // strip leading number+dot
+      const item = l.replace(/^[0-9]+\.?\s*/, "");
+      out += `<li>${escapeHtml(item)}</li>`;
+      continue;
+    }
+
+    // Default paragraph
+    flushList();
+    out += `<p>${escapeHtml(l)}</p>`;
+  }
+
+  flushList();
+  return out;
+}
 /* Render the conversation in the chat window (global) */
 function renderChatWindow() {
   if (!window.chatMessages || window.chatMessages.length === 0) {
     chatWindow.innerHTML = "";
     return;
   }
-  chatWindow.innerHTML = window.chatMessages
+
+  const html = window.chatMessages
     .filter((m) => m.role !== "system")
     .map((m) => {
-      const role =
+      const roleLabel =
         m.role === "user" ? "You" : m.role === "assistant" ? "Assistant" : "";
-      const content = escapeHtml(m.content).replace(/\n/g, "<br>");
-      return `<div class=\"chat-line chat-${m.role}\"><strong>${role}:</strong> <div class=\"chat-content\">${content}</div></div>`;
+      const formatted = formatMessageContent(m.content);
+      // Bubble structure
+      return `
+        <div class=\"chat-line chat-${
+          m.role
+        }\">\n          <div class=\"chat-bubble chat-bubble-${
+        m.role
+      }\">\n            <div class=\"chat-meta\">${escapeHtml(
+        roleLabel
+      )}</div>\n            <div class=\"chat-bubble-content\">${formatted}</div>\n          </div>\n        </div>`;
     })
     .join("");
+
+  chatWindow.innerHTML = html;
+  // scroll to bottom
+  chatWindow.scrollTop = chatWindow.scrollHeight;
 }
 
 /* Global helper to call the chat API via proxyFetchChat */
@@ -433,6 +526,136 @@ async function callOpenAI(messages, options = {}) {
       ? data.choices[0].message.content
       : "(No response)";
   return assistantMsg;
+}
+
+/* Local fallback routine generator (basic rule-based) */
+function generateLocalRoutine(selectedProducts) {
+  if (!selectedProducts || selectedProducts.length === 0)
+    return "No products selected.";
+
+  const byCat = {};
+  selectedProducts.forEach((p) => {
+    const cat = (p.category || "other").toLowerCase();
+    byCat[cat] = byCat[cat] || [];
+    byCat[cat].push(p);
+  });
+
+  const lines = [];
+  // Skincare: morning and evening
+  if (byCat.cleanser || byCat.skincare || byCat.moisturizer || byCat.suncare) {
+    lines.push("Morning routine:");
+    // Cleanser
+    const cleansers = (byCat.cleanser || []).concat(
+      (byCat.skincare || []).filter((p) => /(cleanser)/i.test(p.name))
+    );
+    if (cleansers.length) {
+      cleansers.forEach((c, i) =>
+        lines.push(`${lines.length}. Cleanse with ${c.brand} ${c.name}.`)
+      );
+    }
+    // Treatment / serums
+    const treatments = (byCat.skincare || []).filter((p) =>
+      /(serum|retinol|vitamin|vitamin c|acid|treatment)/i.test(
+        p.name + " " + p.description
+      )
+    );
+    if (treatments.length) {
+      treatments.forEach((t) =>
+        lines.push(`${lines.length}. Apply ${t.brand} ${t.name} (treatment).`)
+      );
+    }
+    // Moisturizer
+    const moisturizers = byCat.moisturizer || [];
+    if (moisturizers.length) {
+      moisturizers.forEach((m) =>
+        lines.push(`${lines.length}. Use ${m.brand} ${m.name} to hydrate.`)
+      );
+    }
+    // Sunscreen
+    const sunscreens =
+      byCat.suncare ||
+      (byCat.skincare || []).filter((p) =>
+        /(spf|sunscreen)/i.test(p.name + " " + p.description)
+      );
+    if (sunscreens && sunscreens.length) {
+      sunscreens.forEach((s) =>
+        lines.push(
+          `${lines.length}. Finish with sunscreen: ${s.brand} ${s.name}.`
+        )
+      );
+    }
+
+    lines.push("");
+    // Evening routine
+    lines.push("Evening routine:");
+    if (cleansers.length) {
+      cleansers.forEach((c) =>
+        lines.push(`${lines.length}. Cleanse with ${c.brand} ${c.name}.`)
+      );
+    }
+    if (treatments.length) {
+      treatments.forEach((t) =>
+        lines.push(
+          `${lines.length}. Apply ${t.brand} ${t.name} (use as directed, some treatments are nightly).`
+        )
+      );
+    }
+    if (moisturizers.length) {
+      moisturizers.forEach((m) =>
+        lines.push(
+          `${lines.length}. Apply ${m.brand} ${m.name} to lock in moisture overnight.`
+        )
+      );
+    }
+  }
+
+  // Haircare
+  if (byCat.haircare || byCat["hair styling"] || byCat["hair color"]) {
+    lines.push("");
+    lines.push("Haircare:");
+    const shampoos = (byCat.haircare || []).filter((p) =>
+      /(shampoo)/i.test(p.name + " " + p.description)
+    );
+    const conditioners = (byCat.haircare || []).filter((p) =>
+      /(conditioner)/i.test(p.name + " " + p.description)
+    );
+    shampoos.forEach((s) =>
+      lines.push(
+        `${lines.length}. Wet hair, shampoo with ${s.brand} ${s.name}, then rinse.`
+      )
+    );
+    conditioners.forEach((c) =>
+      lines.push(
+        `${lines.length}. Follow with ${c.brand} ${c.name} on lengths and ends.`
+      )
+    );
+  }
+
+  // Makeup
+  if (byCat.makeup) {
+    lines.push("");
+    lines.push("Makeup application tips:");
+    byCat.makeup.forEach((m) =>
+      lines.push(
+        `${lines.length}. Use ${m.brand} ${m.name} as appropriate (follow product instructions).`
+      )
+    );
+  }
+
+  // Fragrance
+  if (byCat.fragrance) {
+    lines.push("");
+    lines.push("Fragrance:");
+    byCat.fragrance.forEach((f) =>
+      lines.push(
+        `${lines.length}. Apply ${f.brand} ${f.name} to pulse points as desired.`
+      )
+    );
+  }
+
+  if (lines.length === 0)
+    return "Couldn't compose a routine from the selected products.";
+  return lines.join("\n");
 }
 
 /* Attach hover/focus handlers to each rendered card to keep aria-hidden in sync */
@@ -546,7 +769,35 @@ chatForm.addEventListener("submit", async (e) => {
     input.value = "";
     return;
   }
-  // use the global callOpenAI/escapeHtml/renderChatWindow
+  // add the user's message to conversation and call the assistant
+  try {
+    window.chatMessages = window.chatMessages || [
+      { role: "system", content: currentSystemPrompt },
+    ];
+    const userMsg = { role: "user", content: text };
+    window.chatMessages.push(userMsg);
+
+    // show a quick loading placeholder in the chat
+    renderChatWindow();
+
+    let assistantText = "";
+    try {
+      assistantText = await callOpenAI(window.chatMessages, {
+        max_tokens: 400,
+      });
+    } catch (apiErr) {
+      console.warn("Follow-up API call failed, showing fallback reply", apiErr);
+      assistantText =
+        "I'm unable to reach the assistant right now. Please try again later.";
+    }
+
+    window.chatMessages.push({ role: "assistant", content: assistantText });
+    renderChatWindow();
+    input.value = "";
+  } catch (err) {
+    console.error("Chat submit error:", err);
+    input.value = "";
+  }
 });
 
 /* Click (and keyboard) handling using event delegation */
@@ -614,9 +865,15 @@ if (generateBtn) {
         )}\n\nCreate a short routine (bulleted or numbered) describing when and how to use these products together.`,
       };
 
-      const assistantText = await callOpenAI([systemMsg, userMsg], {
-        max_tokens: 500,
-      });
+      let assistantText = "";
+      try {
+        assistantText = await callOpenAI([systemMsg, userMsg], {
+          max_tokens: 500,
+        });
+      } catch (apiErr) {
+        console.warn("OpenAI proxy failed, using local fallback:", apiErr);
+        assistantText = generateLocalRoutine(selectedProducts);
+      }
 
       window.chatMessages = [
         systemMsg,
